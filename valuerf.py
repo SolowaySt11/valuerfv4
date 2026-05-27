@@ -1,19 +1,30 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
-from bs4 import BeautifulSoup
 
 TOKEN = "8847119724:AAGudqiuhIdAoehPBwTCnJKywUmeoKxb7_E"
 
-# ---------- Функция получения курса валют (ExchangeRate-API) ----------
+# ---------- Функция курсов валют (ExchangeRate-API) ----------
 def get_currency_rate(currency_code):
-    """Возвращает курс валюты к рублю (USD, EUR, CNY)."""
     url = "https://api.exchangerate-api.com/v4/latest/RUB"
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         data = response.json()
         rate = data['rates'][currency_code]
         return round(rate, 2)
+    except:
+        return None
+
+# ---------- Функция цен металлов (MOEX) ----------
+def get_metal_price(ticker):
+    url = f"https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/{ticker}.json"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data['marketdata']['data'][0][2]
+        else:
+            return None
     except:
         return None
 
@@ -33,7 +44,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ---------- Меню драгметаллов ----------
-async def metals_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def metals_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, message_text="🪙 Выбери драгоценный металл:"):
     query = update.callback_query
     keyboard = [
         [InlineKeyboardButton("🥇 Золото", callback_data="gold")],
@@ -43,13 +54,10 @@ async def metals_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        "🪙 Выбери драгоценный металл:",
-        reply_markup=reply_markup
-    )
+    await query.edit_message_text(message_text, reply_markup=reply_markup)
 
 # ---------- Меню валют ----------
-async def currencies_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def currencies_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, message_text="💵 Выбери валюту:"):
     query = update.callback_query
     keyboard = [
         [InlineKeyboardButton("🇺🇸 Доллар", callback_data="USD")],
@@ -58,99 +66,55 @@ async def currencies_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(
-        "💵 Выбери валюту:",
-        reply_markup=reply_markup
-    )
+    await query.edit_message_text(message_text, reply_markup=reply_markup)
 
-# ---------- Обработка всех кнопок ----------
+# ---------- Обработчик кнопок ----------
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
 
+    # Назад в главное меню
     if data == "main_menu":
         await start(update, context)
         return
 
-    # ========== ДРАГОЦЕННЫЕ МЕТАЛЛЫ ==========
+    # Показать меню металлов
     if data == "metals":
         await metals_menu(update, context)
         return
 
-    # Золото
-    if data == "gold":
-        url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/GOLD.json"
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                data_json = response.json()
-                last_price = data_json['marketdata']['data'][0][2]
-                text = f"🥇 Золото: {last_price} ₽"
-            else:
-                text = "❌ Ошибка при получении данных"
-        except:
-            text = "❌ Не удалось подключиться к серверу"
-        await query.edit_message_text(text)
-        await metals_menu(update, context)
-        return
-
-    # Серебро
-    if data == "silver":
-        url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/SILV.json"
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                data_json = response.json()
-                last_price = data_json['marketdata']['data'][0][2]
-                text = f"🥈 Серебро: {last_price} ₽"
-            else:
-                text = "❌ Ошибка при получении данных"
-        except:
-            text = "❌ Не удалось подключиться к серверу"
-        await query.edit_message_text(text)
-        await metals_menu(update, context)
-        return
-
-    # Платина
-    if data == "PLAT":
-        url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/PLAT.json"
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                data_json = response.json()
-                last_price = data_json['marketdata']['data'][0][2]
-                text = f"💍 Платина: {last_price} ₽"
-            else:
-                text = "❌ Ошибка при получении данных"
-        except:
-            text = "❌ Не удалось подключиться к серверу"
-        await query.edit_message_text(text)
-        await metals_menu(update, context)
-        return
-
-    # Палладий
-    if data == "PLD":
-        url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/PLD.json"
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                data_json = response.json()
-                last_price = data_json['marketdata']['data'][0][2]
-                text = f"🪨 Палладий: {last_price} ₽"
-            else:
-                text = "❌ Ошибка при получении данных"
-        except:
-            text = "❌ Не удалось подключиться к серверу"
-        await query.edit_message_text(text)
-        await metals_menu(update, context)
-        return
-
-    # ========== ВАЛЮТЫ ==========
+    # Показать меню валют
     if data == "currencies":
         await currencies_menu(update, context)
         return
 
+    # ========== МЕТАЛЛЫ ==========
+    if data == "gold":
+        price = get_metal_price("GOLD")
+        text = f"🥇 Золото: {price} ₽" if price else "❌ Не удалось получить цену золота"
+        await query.edit_message_text(text)
+        return
+
+    if data == "silver":
+        price = get_metal_price("SILV")
+        text = f"🥈 Серебро: {price} ₽" if price else "❌ Не удалось получить цену серебра"
+        await query.edit_message_text(text)
+        return
+
+    if data == "PLAT":
+        price = get_metal_price("PLAT")
+        text = f"💍 Платина: {price} ₽" if price else "❌ Не удалось получить цену платины"
+        await query.edit_message_text(text)
+        return
+
+    if data == "PLD":
+        price = get_metal_price("PLD")
+        text = f"🪨 Палладий: {price} ₽" if price else "❌ Не удалось получить цену палладия"
+        await query.edit_message_text(text)
+        return
+
+    # ========== ВАЛЮТЫ ==========
     if data in ["USD", "EUR", "CNY"]:
         rate = get_currency_rate(data)
         if rate:
@@ -163,13 +127,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text = "❌ Не удалось получить курс. Попробуй позже."
         await query.edit_message_text(text)
-        await currencies_menu(update, context)
         return
 
-    # ========== АКЦИИ (ЗАГОТОВКА) ==========
+    # Акции (заготовка)
     if data == "stocks":
         await query.edit_message_text("📈 Раздел с акциями в разработке. Скоро появится!")
-        await start(update, context)
         return
 
 # ---------- Запасные команды ----------
