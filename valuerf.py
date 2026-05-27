@@ -16,26 +16,21 @@ def get_currency_rate(currency_code):
         return None
 
 # ---------- ЦЕНЫ МЕТАЛЛОВ (исправленные заголовки) ----------
-def get_metal_price(ticker):
-    url = f"https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/{ticker}.json"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
-        "Referer": "https://www.moex.com/"
-    }
+def get_metal_price(metal_name):
+    """metal_name: 'XAU' (золото), 'XAG' (серебро), 'XPT' (платина), 'XPD' (палладий)"""
+    url = f"https://api.gold-api.com/price/{metal_name}"
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            # Цена последней сделки — обычно в marketdata/data[0][2]
-            price = data['marketdata']['data'][0][2]
-            return price
-        else:
-            print(f"MOEX ответил {response.status_code} для {ticker}")
-            return None
-    except Exception as e:
-        print(f"Ошибка при запросе {ticker}: {e}")
+            # Цена в долларах за тройскую унцию
+            price_usd = data['price']
+            # Переводим в рубли (курс доллара к рублю)
+            usd_rate = get_currency_rate("USD")
+            if usd_rate:
+                return round(price_usd * usd_rate, 2)
+        return None
+    except:
         return None
 
 # ---------- ГЛАВНОЕ МЕНЮ ----------
@@ -99,32 +94,32 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await currencies_menu(update, context)
         return
 
-    # Металлы
+    # ========== МЕТАЛЛЫ ==========
     if data == "gold":
-        price = get_metal_price("GOLD")
+        price = get_metal_price("XAU")
         text = f"🥇 Золото: {price} ₽" if price else "❌ Не удалось получить цену золота"
         await query.edit_message_text(text)
         return
 
     if data == "silver":
-        price = get_metal_price("SILV")
+        price = get_metal_price("XAG")
         text = f"🥈 Серебро: {price} ₽" if price else "❌ Не удалось получить цену серебра"
         await query.edit_message_text(text)
         return
 
     if data == "PLAT":
-        price = get_metal_price("PLAT")
+        price = get_metal_price("XPT")
         text = f"💍 Платина: {price} ₽" if price else "❌ Не удалось получить цену платины"
         await query.edit_message_text(text)
         return
 
     if data == "PLD":
-        price = get_metal_price("PLD")
+        price = get_metal_price("XPD")
         text = f"🪨 Палладий: {price} ₽" if price else "❌ Не удалось получить цену палладия"
         await query.edit_message_text(text)
         return
 
-    # Валюты
+    # ========== ВАЛЮТЫ ==========
     if data in ["USD", "EUR", "CNY"]:
         rate = get_currency_rate(data)
         if rate:
@@ -139,7 +134,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text)
         return
 
-    # Акции (заготовка)
+    # ========== АКЦИИ (ЗАГОТОВКА) ==========
     if data == "stocks":
         await query.edit_message_text("📈 Раздел с акциями в разработке. Скоро появится!")
         return
