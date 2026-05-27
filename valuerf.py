@@ -15,7 +15,7 @@ def get_currency_rate(currency_code):
     except:
         return None
 
-# ---------- ЦЕНЫ МЕТАЛЛОВ (исправленные заголовки) ----------
+# ---------- ЦЕНЫ МЕТАЛЛОВ ----------
 def get_metal_price(metal_name):
     """metal_name: 'XAU' (золото), 'XAG' (серебро), 'XPT' (платина), 'XPD' (палладий)"""
     url = f"https://api.gold-api.com/price/{metal_name}"
@@ -23,15 +23,47 @@ def get_metal_price(metal_name):
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            # Цена в долларах за тройскую унцию
             price_usd = data['price']
-            # Переводим в рубли (курс доллара к рублю)
             usd_rate = get_currency_rate("USD")
             if usd_rate:
                 return round(price_usd * usd_rate / 31.1, 2)
         return None
     except:
         return None
+
+# ---------- ЦЕНЫ АКЦИЙ ----------
+def get_stock_price(ticker):
+    """ticker: 'GAZP', 'SBER', 'LKOH', 'YNDX'"""
+    url = f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/tqbr/securities/{ticker}.json"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json, text/plain, */*"
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            price = data['marketdata']['data'][0][2]
+            return round(price, 2)
+        else:
+            print(f"MOEX ответил {response.status_code} для {ticker}")
+            return None
+    except Exception as e:
+        print(f"Ошибка при запросе {ticker}: {e}")
+        return None
+
+# ---------- МЕНЮ АКЦИЙ ----------
+async def stocks_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    keyboard = [
+        [InlineKeyboardButton("🛢️ Газпром", callback_data="GAZP")],
+        [InlineKeyboardButton("🏦 Сбербанк", callback_data="SBER")],
+        [InlineKeyboardButton("⛽ Лукойл", callback_data="LKOH")],
+        [InlineKeyboardButton("🌐 Яндекс", callback_data="YNDX")],
+        [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("📈 Выбери акцию:", reply_markup=reply_markup)
 
 # ---------- ГЛАВНОЕ МЕНЮ ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -79,19 +111,20 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
 
-    # Возврат в главное меню
     if data == "main_menu":
         await start(update, context)
         return
 
-    # Показать меню металлов
     if data == "metals":
         await metals_menu(update, context)
         return
 
-    # Показать меню валют
     if data == "currencies":
         await currencies_menu(update, context)
+        return
+
+    if data == "stocks":
+        await stocks_menu(update, context)
         return
 
     # ========== МЕТАЛЛЫ ==========
@@ -134,9 +167,22 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text)
         return
 
-    # ========== АКЦИИ (ЗАГОТОВКА) ==========
-    if data == "stocks":
-        await query.edit_message_text("📈 Раздел с акциями в разработке. Скоро появится!")
+    # ========== АКЦИИ ==========
+    if data in ["GAZP", "SBER", "LKOH", "YNDX"]:
+        price = get_stock_price(data)
+        if price:
+            if data == "GAZP":
+                name = "🛢️ Газпром"
+            elif data == "SBER":
+                name = "🏦 Сбербанк"
+            elif data == "LKOH":
+                name = "⛽ Лукойл"
+            else:
+                name = "🌐 Яндекс"
+            text = f"{name}: {price} ₽"
+        else:
+            text = f"❌ Не удалось получить цену для {data}"
+        await query.edit_message_text(text)
         return
 
 # ---------- HELP ----------
