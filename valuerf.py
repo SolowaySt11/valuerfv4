@@ -4,36 +4,41 @@ import requests
 
 TOKEN = "8847119724:AAGudqiuhIdAoehPBwTCnJKywUmeoKxb7_E"
 
-# ---------- КУРСЫ ВАЛЮТ (исправлено: переворот) ----------
+# ---------- КУРСЫ ВАЛЮТ ----------
 def get_currency_rate(currency_code):
     url = "https://api.exchangerate-api.com/v4/latest/RUB"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
-        # data['rates'][currency_code] — сколько валюты дают за 1 рубль
         rub_per_currency = 1 / data['rates'][currency_code]
         return round(rub_per_currency, 2)
     except:
         return None
 
-# ---------- ЦЕНЫ МЕТАЛЛОВ (добавлен User-Agent) ----------
+# ---------- ЦЕНЫ МЕТАЛЛОВ (исправленные заголовки) ----------
 def get_metal_price(ticker):
     url = f"https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/{ticker}.json"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+        "Referer": "https://www.moex.com/"
     }
     try:
         response = requests.get(url, headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
+            # Цена последней сделки — обычно в marketdata/data[0][2]
             price = data['marketdata']['data'][0][2]
             return price
         else:
+            print(f"MOEX ответил {response.status_code} для {ticker}")
             return None
-    except:
+    except Exception as e:
+        print(f"Ошибка при запросе {ticker}: {e}")
         return None
 
-# ---------- Главное меню ----------
+# ---------- ГЛАВНОЕ МЕНЮ ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🪙 Драгоценные металлы", callback_data="metals")],
@@ -48,7 +53,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# ---------- Меню драгметаллов ----------
+# ---------- МЕНЮ ДРАГМЕТАЛЛОВ ----------
 async def metals_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     keyboard = [
@@ -61,7 +66,7 @@ async def metals_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text("🪙 Выбери драгоценный металл:", reply_markup=reply_markup)
 
-# ---------- Меню валют ----------
+# ---------- МЕНЮ ВАЛЮТ ----------
 async def currencies_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     keyboard = [
@@ -73,20 +78,23 @@ async def currencies_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_text("💵 Выбери валюту:", reply_markup=reply_markup)
 
-# ---------- Обработчик кнопок ----------
+# ---------- ОБРАБОТЧИК КНОПОК ----------
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
 
+    # Возврат в главное меню
     if data == "main_menu":
         await start(update, context)
         return
 
+    # Показать меню металлов
     if data == "metals":
         await metals_menu(update, context)
         return
 
+    # Показать меню валют
     if data == "currencies":
         await currencies_menu(update, context)
         return
@@ -136,6 +144,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("📈 Раздел с акциями в разработке. Скоро появится!")
         return
 
+# ---------- HELP ----------
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Используй /start для начала работы.")
 
