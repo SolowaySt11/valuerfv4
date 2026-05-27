@@ -33,7 +33,7 @@ def get_metal_price(metal_name):
 
 # ---------- ЦЕНЫ АКЦИЙ ----------
 def get_stock_price(ticker):
-    """ticker: 'GAZP', 'SBER', 'LKOH', 'YNDX'"""
+    """ticker: 'GAZP', 'SBER', 'LKOH', 'YDEX'"""
     url = f"https://iss.moex.com/iss/engines/stock/markets/shares/boards/tqbr/securities/{ticker}.json"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -59,7 +59,7 @@ async def stocks_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🛢️ Газпром", callback_data="GAZP")],
         [InlineKeyboardButton("🏦 Сбербанк", callback_data="SBER")],
         [InlineKeyboardButton("⛽ Лукойл", callback_data="LKOH")],
-        [InlineKeyboardButton("🌐 Яндекс", callback_data="YNDX")],
+        [InlineKeyboardButton("🌐 Яндекс", callback_data="YDEX")],
         [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
