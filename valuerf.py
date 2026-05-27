@@ -5,20 +5,15 @@ from bs4 import BeautifulSoup
 
 TOKEN = "8847119724:AAGudqiuhIdAoehPBwTCnJKywUmeoKxb7_E"
 
-# ---------- Функция получения курса валют ----------
-def get_cbr_currency(currency_code):
-    url = url = "https://www.cbr.ru/scripts/XML_daily.asp"
+# ---------- Функция получения курса валют (ExchangeRate-API) ----------
+def get_currency_rate(currency_code):
+    """Возвращает курс валюты к рублю (USD, EUR, CNY)."""
+    url = "https://api.exchangerate-api.com/v4/latest/RUB"
     try:
         response = requests.get(url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, "xml")
-        valute = soup.find("CharCode", text=currency_code)
-        if valute:
-            valute_tag = valute.find_parent("Valute")
-            nominal = int(valute_tag.find("Nominal").text)
-            value = float(valute_tag.find("Value").text.replace(',', '.'))
-            return round(value / nominal, 2)
-        return None
+        data = response.json()
+        rate = data['rates'][currency_code]
+        return round(rate, 2)
     except:
         return None
 
@@ -43,6 +38,8 @@ async def metals_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🥇 Золото", callback_data="gold")],
         [InlineKeyboardButton("🥈 Серебро", callback_data="silver")],
+        [InlineKeyboardButton("💍 Платина", callback_data="PLAT")],
+        [InlineKeyboardButton("🪨 Палладий", callback_data="PLD")],
         [InlineKeyboardButton("🔙 Назад", callback_data="main_menu")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -72,16 +69,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
 
-    # Возврат в главное меню
     if data == "main_menu":
         await start(update, context)
         return
 
-    # Драгоценные металлы
+    # ========== ДРАГОЦЕННЫЕ МЕТАЛЛЫ ==========
     if data == "metals":
         await metals_menu(update, context)
         return
 
+    # Золото
     if data == "gold":
         url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/GOLD.json"
         try:
@@ -95,10 +92,11 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             text = "❌ Не удалось подключиться к серверу"
         await query.edit_message_text(text)
-        # Возвращаем меню металлов
         await metals_menu(update, context)
         return
-    if data == "SILV":
+
+    # Серебро
+    if data == "silver":
         url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/SILV.json"
         try:
             response = requests.get(url)
@@ -111,9 +109,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             text = "❌ Не удалось подключиться к серверу"
         await query.edit_message_text(text)
-        # Возвращаем меню металлов
         await metals_menu(update, context)
         return
+
+    # Платина
     if data == "PLAT":
         url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/PLAT.json"
         try:
@@ -130,6 +129,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await metals_menu(update, context)
         return
 
+    # Палладий
     if data == "PLD":
         url = "https://iss.moex.com/iss/engines/currency/markets/selt/boards/selt/securities/PLD.json"
         try:
@@ -145,13 +145,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text)
         await metals_menu(update, context)
         return
-    # Валюты 
+
+    # ========== ВАЛЮТЫ ==========
     if data == "currencies":
         await currencies_menu(update, context)
         return
 
     if data in ["USD", "EUR", "CNY"]:
-        rate = get_cbr_currency(data)
+        rate = get_currency_rate(data)
         if rate:
             if data == "USD":
                 text = f"🇺🇸 Доллар США: {rate} ₽"
@@ -162,11 +163,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text = "❌ Не удалось получить курс. Попробуй позже."
         await query.edit_message_text(text)
-        # Возвращаем меню валют
         await currencies_menu(update, context)
         return
 
-    # Акции (заготовка)
+    # ========== АКЦИИ (ЗАГОТОВКА) ==========
     if data == "stocks":
         await query.edit_message_text("📈 Раздел с акциями в разработке. Скоро появится!")
         await start(update, context)
