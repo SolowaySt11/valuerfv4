@@ -28,7 +28,7 @@ def get_metal_price(metal_name):
             # Переводим в рубли (курс доллара к рублю)
             usd_rate = get_currency_rate("USD")
             if usd_rate:
-                return round(price_usd * usd_rate, 2)
+                return round(price_usd * usd_rate / 31.1, 2)
         return None
     except:
         return None
